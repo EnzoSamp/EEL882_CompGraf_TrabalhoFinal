@@ -1,8 +1,7 @@
 # OPERATION SKULD
 ### FPS narrativo em p5.js (WEBGL) — showcase de Computação Gráfica
 *Uma releitura/AU de **Steins;Gate**: você joga como **Makise Kurisu**, portando a
-única cura durante um apocalipse zumbi. Atravesse o corredor infestado do Future
-Gadget Lab, alcance a **máquina do tempo** e volte ao passado para distribuir a
+única cura durante um apocalipse zumbi. Atravesse o corredor infestado do bunker, alcance a **máquina do tempo** e volte ao passado para distribuir a
 cura por todas as linhas temporais.*
 
 ---
@@ -92,5 +91,3 @@ js/
   cutscene.js         # clímax: espiral (trigonometria) + portal + túnel de Makises
   game.js             # máquina de estados, render, HUD, áudio, dificuldade
 ```
-
-*El Psy Kongroo.*

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Editor de Curvas de Bézier — Ilustrações (Operation Skuld)</title>
+<style>
+  html,body{margin:0;height:100%;background:#10141c;color:#dfe9f2;
+    font-family:Segoe UI,Consolas,monospace;overflow:hidden;}
+  #barraFerramentas{position:fixed;top:0;left:0;right:0;padding:8px 10px;z-index:10;
+    background:rgba(8,12,18,.92);border-bottom:1px solid #2a3a4a;display:flex;
+    flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;}
+  #barraFerramentas button,#barraFerramentas label{font:inherit;}
+  #barraFerramentas button{background:#1d2734;color:#cfe0ee;border:1px solid #35506a;border-radius:4px;
+    padding:4px 9px;cursor:pointer;}
+  #barraFerramentas button:hover{background:#27374a;}
+  #barraFerramentas button.on{background:#36c8e0;color:#08121a;border-color:#36c8e0;}
+  #barraFerramentas .sep{width:1px;height:20px;background:#2a3a4a;margin:0 2px;}
+  #barraFerramentas input[type=range]{width:90px;vertical-align:middle;}
+  #barraFerramentas input[type=color]{width:26px;height:22px;border:none;background:none;vertical-align:middle;}
+  #areaCanvas{position:fixed;top:46px;bottom:0;left:0;right:300px;overflow:hidden;background:#0d1119;}
+  #painelLateral{position:fixed;top:46px;bottom:0;right:0;width:300px;background:#0b0f16;
+    border-left:1px solid #2a3a4a;padding:8px;box-sizing:border-box;font-size:11px;}
+  #painelLateral h3{margin:6px 0 4px;color:#36e0ff;letter-spacing:1px;font-size:11px;}
+  #listaTracao{max-height:34%;overflow:auto;border:1px solid #21303f;border-radius:4px;}
+  .pitem{padding:4px 6px;border-bottom:1px solid #18222e;cursor:pointer;display:flex;
+    gap:6px;align-items:center;}
+  .pitem.sel{background:#14233040;outline:1px solid #36c8e0;}
+  .sw{width:14px;height:14px;border-radius:3px;border:1px solid #000;}
+  #areaJSON{width:100%;height:42%;margin-top:6px;background:#070b11;color:#9fd8a0;
+    border:1px solid #21303f;border-radius:4px;font-size:10px;resize:none;}
+  .hint{color:#7d8fa0;line-height:1.5;}
+  kbd{background:#1d2734;border:1px solid #35506a;border-radius:3px;padding:0 4px;}
+</style>
+</head>
+<body>
+  <div id="barraFerramentas">
+    <label>Projeto
+      <select id="seletorProjeto">
+        <option value="makise_curves">Makise (clímax)</option>
+        <option value="Entrada_bunker">Entrada do bunker</option>
+        <option value="Makise_arma">Makise com arma</option>
+      </select></label>
+    <label title="Carregar imagem-guia local (qualquer imagem)">Guia📁
+      <input type="file" id="arquivoGuia" accept="image/*" style="width:120px"></label>
+    <span class="sep"></span>
+    <button id="btnModoCaneta" class="on">✎ Caneta</button>
+    <button id="btnModoEditar">✋ Editar</button>
+    <span class="sep"></span>
+    <button id="btnNovoTraco">+ Novo traço</button>
+    <button id="btnFecharTraco">Fechar traço</button>
+    <button id="btnSubirTraco">▲</button>
+    <button id="btnDescerTraco">▼</button>
+    <button id="btnDuplicarTraco">⧉ Duplicar</button>
+    <button id="btnApagarTraco">🗑 Apagar</button>
+    <span class="sep"></span>
+    <label>Preench <input type="checkbox" id="checkPreenchimento" checked></label>
+    <input type="color" id="corPreenchimento" value="#5a3a2e">
+    <label>Contorno <input type="checkbox" id="checkContorno" checked></label>
+    <input type="color" id="corContorno" value="#120a08">
+    <label>Esp <input type="range" id="espessuraContorno" min="0" max="14" value="3"></label>
+    <span class="sep"></span>
+    <label>Guia <input type="checkbox" id="checkGuia" checked></label>
+    <input type="range" id="opacidadeGuia" min="0" max="100" value="55">
+    <label title="Ocultar preenchimentos globais">Raio-X <input type="checkbox" id="checkRaioX"></label>
+    <button id="btnEnquadrar">⤢ Enquadrar</button>
+    <span class="sep"></span>
+    <button id="btnDesfazer">↶ Ponto</button>
+    <button id="btnExportar">⬇ Exportar</button>
+    <button id="btnImportar">⬆ Importar</button>
+    <button id="btnBaixar">💾 Baixar</button>
+  </div>
+
+  <div id="areaCanvas"></div>
+
+  <div id="painelLateral">
+    <h3>TRAÇOS (camadas — de baixo p/ cima)</h3>
+    <div id="listaTracao"></div>
+    <h3>JSON (cole aqui p/ importar)</h3>
+    <textarea id="areaJSON" spellcheck="false"></textarea>
+    <div class="hint" style="margin-top:6px">
+      <b>Caneta:</b> clique = reto; clique+arraste = curva.<br>
+      <b>Editar:</b> arraste ● (âncora) / ○ (alça). <kbd>Del</kbd> apaga ponto.<br>
+      <b>Zoom:</b> roda do mouse. <b>Pan:</b> <kbd>Espaço</kbd>+arraste ou botão do meio.<br>
+      <b>Projeto:</b> escolha o desenho no topo (carrega guia + JSON). <b>Guia📁</b> = imagem local.<br>
+      <b>Baixar</b> salva no nome do projeto. Coloque o arquivo em <code>assets/</code>.
+    </div>
+  </div>
+
+  <script src="libs/p5.min.js"></script>
+  <script>
+  /* ============================================================
+     Editor de curvas de Bézier cúbicas (2D). Espaço de referência
+     REFW x REFH. Zoom/pan por transformação de view.
+     ============================================================ */
+  let REFW = 560, REFH = 760;   // dimensões da moldura (variam por projeto)
+  let paths = [], cur = -1, mode = 'pen';
+  let guideImg = null, showGuide = true, guideOp = 0.55;
+  let xrayMode = false;
+  let drag = null;               // {pathI, anchorI, part}
+  let view = { s: 1, ox: 0, oy: 0 };
+  let panning = false, panStart = null;
+
+  // cada projeto: imagem-guia + JSON de saída + dimensões da moldura (w×h).
+  // landscape para cenas (bunker), retrato para personagens (Makise).
+  const PROJECTS = {
+    makise_curves:  { guide: 'assets/image_Makise.webp',  json: 'assets/makise_curves.json', w: 560, h: 760 },
+    Entrada_bunker: { guide: 'assets/Entrada_bunker.jpg', json: 'assets/Entrada_bunker.json', w: 960, h: 640 },
+    Makise_arma:    { guide: 'assets/Makise_arma.png',    json: 'assets/Makise_arma.json',    w: 560, h: 760 },
+  };
+  let curProject = 'makise_curves', outName = 'makise_curves.json';
+
+  function setup() {
+    const areaCanvas = document.getElementById('areaCanvas');
+    const c = createCanvas(areaCanvas.clientWidth, areaCanvas.clientHeight); c.parent(areaCanvas);
+    pixelDensity(1);
+    paths = []; newPath();
+    fitView(); wireUI(); refreshList(); syncControls(); syncJSON();
+    loadProject('makise_curves');
+  }
+
+  // troca de projeto: carrega imagem-guia + JSON daquele desenho (assíncrono)
+  function loadProject(key) {
+    if (!PROJECTS[key]) return;
+    curProject = key;
+    const cfg = PROJECTS[key];
+    outName = cfg.json.split('/').pop();
+    REFW = cfg.w || 560; REFH = cfg.h || 760;
+    const seletorProjeto = document.getElementById('seletorProjeto');
+    if (seletorProjeto) seletorProjeto.value = key;
+    guideImg = null;
+    loadImage(cfg.guide, img => { guideImg = img; }, () => { guideImg = null; });
+    loadJSON(cfg.json,
+      o => applyLoaded(o),
+      () => { paths = []; newPath(); fitView(); refreshList(); syncControls(); syncJSON(); });
+  }
+
+  function applyLoaded(o) {
+    // alinha a moldura às dimensões salvas no arquivo (não desloca coordenadas)
+    if (o && o.width && o.height) { REFW = o.width; REFH = o.height; }
+    if (o && o.paths && o.paths.length) { paths = JSON.parse(JSON.stringify(o.paths)); cur = paths.length - 1; }
+    else { paths = []; newPath(); }
+    fitView(); refreshList(); syncControls(); syncJSON();
+  }
+
+  function windowResized() {
+    const areaCanvas = document.getElementById('areaCanvas');
+    resizeCanvas(areaCanvas.clientWidth, areaCanvas.clientHeight);
+  }
+
+  /* ---------- view (zoom/pan) ---------- */
+  function fitView() {
+    const m = 40;
+    view.s = Math.min((width - 2 * m) / REFW, (height - 2 * m) / REFH);
+    view.ox = (width - REFW * view.s) / 2; view.oy = (height - REFH * view.s) / 2;
+  }
+  function toRef(mx, my) { return [(mx - view.ox) / view.s, (my - view.oy) / view.s]; }
+  function mouseWheel(e) {
+    if (!inCanvas()) return;
+    const f = e.delta > 0 ? 0.9 : 1.1, ns = constrain(view.s * f, 0.15, 8);
+    const r = toRef(mouseX, mouseY);
+    view.s = ns; view.ox = mouseX - r[0] * view.s; view.oy = mouseY - r[1] * view.s;
+    return false;
+  }
+
+  /* ---------- traços ---------- */
+  function newPath() {
+    paths.push({ color: val('corPreenchimento'), fill: true, stroke: true, strokeColor: val('corContorno'),
+      strokeW: +val('espessuraContorno'), closed: false, anchors: [] });
+    cur = paths.length - 1; refreshList();
+  }
+  function curPath() { return paths[cur]; }
+  function val(id) { return document.getElementById(id).value; }
+
+  function nearest(rx, ry) {
+    let best = null;
+    const thr = 12 / view.s;
+    function checkPart(i, j, part, x, y) {
+      const d = dist(rx, ry, x, y);
+      if (d < thr && (!best || d <= best.d)) best = { pathI: i, anchorI: j, part, d };
+    }
+    if (cur >= 0 && cur < paths.length) {
+      const p = paths[cur];
+      for (let j = 0; j < p.anchors.length; j++) {
+        const a = p.anchors[j];
+        checkPart(cur, j, 'anchor', a.x, a.y);
+        checkPart(cur, j, 'in', a.hix, a.hiy);
+        checkPart(cur, j, 'out', a.hox, a.hoy);
+      }
+    }
+    if (best) return best;
+    for (let i = paths.length - 1; i >= 0; i--) {
+      if (i === cur) continue;
+      const p = paths[i];
+      for (let j = 0; j < p.anchors.length; j++) {
+        checkPart(i, j, 'anchor', p.anchors[j].x, p.anchors[j].y);
+      }
+    }
+    return best;
+  }
+
+  /* ---------- mouse ---------- */
+  function inCanvas() { return mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height; }
+  function mousePressed() {
+    if (!inCanvas()) return;
+    if (keyIsDown(32) || mouseButton === CENTER) { panning = true; panStart = [mouseX, mouseY, view.ox, view.oy]; return; }
+    const [rx, ry] = toRef(mouseX, mouseY);
+    if (mode === 'edit') {
+      const n = nearest(rx, ry);
+      if (n) {
+        if (cur !== n.pathI) { cur = n.pathI; syncControls(); refreshList(); }
+        drag = n;
+      }
+      return;
+    }
+    if (!curPath()) newPath();
+    curPath().anchors.push({ x: rx, y: ry, hix: rx, hiy: ry, hox: rx, hoy: ry });
+    drag = { pathI: cur, anchorI: curPath().anchors.length - 1, part: 'newhandle' };
+  }
+  function mouseDragged() {
+    if (panning && panStart) { view.ox = panStart[2] + (mouseX - panStart[0]); view.oy = panStart[3] + (mouseY - panStart[1]); return; }
+    if (!drag || !inCanvas()) return;
+    const [rx, ry] = toRef(mouseX, mouseY);
+    const p = paths[drag.pathI], a = p.anchors[drag.anchorI];
+    if (drag.part === 'newhandle') { a.hox = rx; a.hoy = ry; a.hix = 2 * a.x - rx; a.hiy = 2 * a.y - ry; }
+    else if (drag.part === 'anchor') { const dx = rx - a.x, dy = ry - a.y; a.x += dx; a.y += dy; a.hix += dx; a.hiy += dy; a.hox += dx; a.hoy += dy; }
+    else if (drag.part === 'in') { a.hix = rx; a.hiy = ry; if (!keyIsDown(SHIFT)) { a.hox = 2 * a.x - rx; a.hoy = 2 * a.y - ry; } }
+    else if (drag.part === 'out') { a.hox = rx; a.hoy = ry; if (!keyIsDown(SHIFT)) { a.hix = 2 * a.x - rx; a.hiy = 2 * a.y - ry; } }
+    syncJSON();
+  }
+  function mouseReleased() { panning = false; drag = null; syncJSON(); }
+  function keyPressed() {
+    if ((keyCode === DELETE || keyCode === BACKSPACE) && mode === 'edit' && drag) {
+      paths[drag.pathI].anchors.splice(drag.anchorI, 1); drag = null; syncJSON();
+    }
+    if (keyCode === 90 && keyIsDown(CONTROL)) {  // Ctrl+Z
+      const btnDesfazer = document.getElementById('btnDesfazer');
+      if (btnDesfazer) btnDesfazer.click();
+    }
+  }
+
+  /* ---------- desenho ---------- */
+  function drawShape(g, p) {
+    if (p.anchors.length < 2) {
+      if (p.anchors.length === 1) { g.noStroke(); if (!xrayMode) g.fill(p.color); else g.noFill(); g.circle(p.anchors[0].x, p.anchors[0].y, 4); }
+      return;
+    }
+    if (p.fill && !xrayMode) g.fill(p.color); else g.noFill();
+    if (p.stroke) { g.stroke(p.strokeColor); g.strokeWeight(p.strokeW); g.strokeJoin(ROUND); } else g.noStroke();
+    g.beginShape(); const a = p.anchors; g.vertex(a[0].x, a[0].y);
+    for (let i = 0; i < a.length - 1; i++) g.bezierVertex(a[i].hox, a[i].hoy, a[i + 1].hix, a[i + 1].hiy, a[i + 1].x, a[i + 1].y);
+    if (p.closed) { const L = a.length - 1; g.bezierVertex(a[L].hox, a[L].hoy, a[0].hix, a[0].hiy, a[0].x, a[0].y); g.endShape(CLOSE); }
+    else g.endShape();
+  }
+  function draw() {
+    background(13, 17, 25);
+    push();
+    translate(view.ox, view.oy); scale(view.s);
+    // moldura de referência
+    noFill(); stroke(40, 60, 80); strokeWeight(1 / view.s); rect(0, 0, REFW, REFH);
+    if (showGuide && guideImg) {
+      push(); tint(255, guideOp * 255);
+      // ajusta a imagem-guia dentro da moldura preservando aspecto
+      const ar = guideImg.width / guideImg.height, fr = REFW / REFH; let gw, gh;
+      if (ar > fr) { gw = REFW; gh = REFW / ar; } else { gh = REFH; gw = REFH * ar; }
+      image(guideImg, (REFW - gw) / 2, (REFH - gh) / 2, gw, gh); pop();
+    }
+    for (const p of paths) drawShape(this, p);
+    // overlay de edição: alças e âncoras do traço atual
+    const p = curPath();
+    if (p) {
+      const r = 1 / view.s;
+      for (const a of p.anchors) {
+        stroke(80, 200, 255, 150); strokeWeight(1 * r);
+        line(a.x, a.y, a.hix, a.hiy); line(a.x, a.y, a.hox, a.hoy);
+        noStroke(); fill(80, 200, 255); circle(a.hix, a.hiy, 7 * r); circle(a.hox, a.hoy, 7 * r);
+        fill(255, 210, 90); circle(a.x, a.y, 9 * r);
+      }
+    }
+    pop();
+    // no modo edição, mostra âncoras dos demais traços em semitransparente
+    if (mode === 'edit') {
+      push(); translate(view.ox, view.oy); scale(view.s);
+      const r = 1 / view.s;
+      for (let i = 0; i < paths.length; i++) {
+        if (i === cur) continue;
+        for (const a of paths[i].anchors) {
+          noStroke(); fill(255, 210, 90, 100); circle(a.x, a.y, 7 * r);
+        }
+      }
+      pop();
+    }
+    // HUD: zoom e contagem de traços
+    noStroke(); fill(120, 150, 170); textSize(11);
+    text('zoom ' + view.s.toFixed(2) + '×   ·   ' + paths.length + ' traços', 10, height - 10);
+  }
+
+  /* ---------- UI ---------- */
+  function wireUI() {
+    const $ = id => document.getElementById(id);
+    $('btnModoCaneta').onclick = () => { mode = 'pen'; $('btnModoCaneta').classList.add('on'); $('btnModoEditar').classList.remove('on'); };
+    $('btnModoEditar').onclick = () => { mode = 'edit'; $('btnModoEditar').classList.add('on'); $('btnModoCaneta').classList.remove('on'); };
+    $('btnNovoTraco').onclick = () => newPath();
+    $('btnFecharTraco').onclick = () => { if (curPath()) { curPath().closed = !curPath().closed; syncJSON(); } };
+    $('btnSubirTraco').onclick = () => movePath(1);
+    $('btnDescerTraco').onclick = () => movePath(-1);
+    $('btnDuplicarTraco').onclick = () => { if (curPath()) { paths.splice(cur + 1, 0, JSON.parse(JSON.stringify(curPath()))); cur++; refreshList(); syncJSON(); } };
+    $('btnApagarTraco').onclick = () => { if (cur >= 0) { paths.splice(cur, 1); cur = Math.min(cur, paths.length - 1); refreshList(); syncJSON(); } };
+    $('checkPreenchimento').onchange = e => { if (curPath()) curPath().fill = e.target.checked; syncJSON(); };
+    $('corPreenchimento').oninput = e => { if (curPath()) { curPath().color = e.target.value; refreshList(); syncJSON(); } };
+    $('checkContorno').onchange = e => { if (curPath()) curPath().stroke = e.target.checked; syncJSON(); };
+    $('corContorno').oninput = e => { if (curPath()) { curPath().strokeColor = e.target.value; syncJSON(); } };
+    $('espessuraContorno').oninput = e => { if (curPath()) { curPath().strokeW = +e.target.value; syncJSON(); } };
+    if ($('seletorProjeto')) $('seletorProjeto').onchange = e => loadProject(e.target.value);
+    if ($('arquivoGuia')) $('arquivoGuia').onchange = e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      loadImage(URL.createObjectURL(f), img => { guideImg = img; }, () => { });
+    };
+    $('checkGuia').onchange = e => showGuide = e.target.checked;
+    $('opacidadeGuia').oninput = e => guideOp = e.target.value / 100;
+    if ($('checkRaioX')) $('checkRaioX').onchange = e => xrayMode = e.target.checked;
+    $('btnEnquadrar').onclick = () => fitView();
+    $('btnDesfazer').onclick = () => { if (curPath() && curPath().anchors.length) { curPath().anchors.pop(); syncJSON(); } };
+    $('btnExportar').onclick = () => syncJSON();
+    $('btnImportar').onclick = () => importJSON();
+    $('btnBaixar').onclick = () => downloadJSON();
+  }
+
+  function movePath(dir) {
+    const ni = cur + dir; if (ni < 0 || ni >= paths.length) return;
+    const t = paths[cur]; paths[cur] = paths[ni]; paths[ni] = t; cur = ni; refreshList(); syncJSON();
+  }
+
+  function refreshList() {
+    const listaTracao = document.getElementById('listaTracao'); listaTracao.innerHTML = '';
+    paths.forEach((p, i) => {
+      const item = document.createElement('div'); item.className = 'pitem' + (i === cur ? ' sel' : '');
+      item.innerHTML = '<span class="sw" style="background:' + p.color + '"></span> traço ' + i +
+        ' (' + p.anchors.length + ' pts' + (p.closed ? ', fechado' : '') + ')';
+      item.onclick = () => {
+        cur = i;
+        syncControls();
+        refreshList();
+        document.getElementById('btnModoEditar').click();
+      };
+      listaTracao.appendChild(item);
+    });
+  }
+
+  function syncControls() {
+    const p = curPath(); if (!p) return;
+    document.getElementById('checkPreenchimento').checked = p.fill;
+    document.getElementById('corPreenchimento').value = p.color;
+    document.getElementById('checkContorno').checked = p.stroke;
+    document.getElementById('corContorno').value = p.strokeColor;
+    document.getElementById('espessuraContorno').value = p.strokeW;
+  }
+
+  function exportObj() { return { width: REFW, height: REFH, paths: paths }; }
+  function syncJSON() { document.getElementById('areaJSON').value = JSON.stringify(exportObj()); refreshList(); }
+  function importJSON() {
+    try {
+      const o = JSON.parse(document.getElementById('areaJSON').value);
+      if (o.paths) { paths = o.paths; cur = paths.length - 1; refreshList(); syncControls(); }
+    } catch (e) { alert('JSON inválido: ' + e.message); }
+  }
+  function downloadJSON() {
+    const blob = new Blob([JSON.stringify(exportObj(), null, 1)], { type: 'application/json' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = outName || 'curves.json'; link.click();
+  }
+  </script>
+</body>
+</html>

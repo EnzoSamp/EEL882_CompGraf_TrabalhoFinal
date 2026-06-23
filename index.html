@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OPERATION SKULD — Steins;Gate FPS (Computação Gráfica)</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+  <!-- ============================================================= -->
+  <!-- Canvas WEBGL (p5) é injetado dentro de #stage                 -->
+  <!-- Todo HUD/texto é DOM sobreposto (crisp, sem loadFont)         -->
+  <!-- ============================================================= -->
+  <div id="stage">
+    <!-- ---------- TELA 1: contexto da história ---------- -->
+    <div id="intro" class="overlay">
+      <div class="frame">
+        <h1>OPERATION&nbsp;SAVE PLANET DESU</h1>
+        <p class="sub">A última esperança da humanidade - inspirado em Steins;Gate</p>
+        <div class="story">
+          <p>A Terra foi devastada. Um patógeno transformou a humanidade em
+            mortos que caminham. No fundo do laboratório do <em>Future Gadget
+              Lab</em>, uma única dose da cura foi criada e ela está no bolso de
+            <strong>Makise&nbsp;Kurisu</strong>.
+          </p>
+          <p>A única esperança é alcançar a <strong>máquina do tempo</strong> que
+            disseram estar em algum lugar de corredor infestado de zumbis. O objetivo é voltar ao passado, antes do
+            primeiro
+            surto, para distribuir os anticorpos para todas as pessoas de pelo menos uma linha temporal, o Steins Gate.
+          </p>
+          <p>Atravesse. Não pare. <em>A escolha de Steins Gate aguarda.</em></p>
+        </div>
+        <ul class="controls">
+          <li><b>W A S D</b> &nbsp;ou&nbsp; <b>↑ ← ↓ →</b> mover</li>
+          <li><b>Mouse</b> olhar</li>
+          <li><b>Clique</b> atirar (SMG · headshot mata)</li>
+          <li><b>R</b> recarregar &nbsp;·&nbsp; <b>F</b> lanterna &nbsp;·&nbsp; <b>E</b> usar máquina</li>
+        </ul>
+
+        <!-- seletor de dificuldade -->
+        <div id="difSelect">
+          <span class="dif-title">DIFICULDADE</span>
+          <div class="dif-options">
+            <button type="button" class="dif-opt" data-dif="facil">FÁCIL</button>
+            <button type="button" class="dif-opt selected" data-dif="normal">NORMAL</button>
+            <button type="button" class="dif-opt" data-dif="dificil">DIFÍCIL</button>
+          </div>
+          <p class="dif-desc" id="difDesc">A experiência balanceada: corredor escuro. Use a lanterna (F).</p>
+        </div>
+
+        <button id="startBtn">INICIAR &nbsp;▶</button>
+        <p class="hint">Clique em INICIAR — o mouse será capturado (Pointer Lock). Pressione <b>Esc</b> para liberar.
+        </p>
+      </div>
+    </div>
+
+    <!-- ---------- HUD de jogo ---------- -->
+    <div id="hud" class="hidden">
+      <!-- mira -->
+      <div id="crosshair">
+        <span class="c-line v"></span>
+        <span class="c-line h"></span>
+        <span class="c-dot"></span>
+      </div>
+      <!-- hit marker -->
+      <div id="hitmarker"></div>
+
+      <!-- canto inferior esquerdo: vida -->
+      <div id="vitals">
+        <div class="label">SINAL VITAL — KURISU</div>
+        <div class="bar">
+          <div id="healthFill"></div>
+        </div>
+      </div>
+
+      <!-- canto inferior direito: munição -->
+      <div id="ammo">
+        <span id="ammoMag">20</span><span class="slash">/</span><span id="ammoReserve">60</span>
+        <div class="weapon" id="weaponLabel">SMG</div>
+      </div>
+
+      <!-- topo: objetivo -->
+      <div id="objective"><span class="dot"></span><span id="objText">Alcance a máquina do tempo</span></div>
+
+      <!-- prompt central (ex.: pressione E) -->
+      <div id="prompt" class="hidden"></div>
+
+      <!-- lembrete de controle (mostrado ao iniciar a jogabilidade) -->
+      <div id="controlHint"><b>F</b> &nbsp;alterna entre &nbsp;<span class="hl">LANTERNA</span>&nbsp; e &nbsp;<span
+          class="hl">ARMA</span></div>
+
+      <!-- flash vermelho ao tomar dano -->
+      <div id="damage"></div>
+      <!-- clarão de disparo (vinheta) -->
+      <div id="muzzleVignette"></div>
+    </div>
+
+    <!-- ---------- Tela de derrota ---------- -->
+    <div id="dead" class="overlay hidden">
+      <div class="frame">
+        <h1 class="bad">LINHA TEMPORAL PERDIDA</h1>
+        <p class="sub">A cura caiu no escuro. O mundo não conhecerá o Steins;Gate.</p>
+        <button id="retryBtn">DIVERGIR NOVAMENTE ↺</button>
+      </div>
+    </div>
+
+    <!-- ---------- Tela final ---------- -->
+    <div id="end" class="overlay hidden">
+      <div class="frame">
+        <!-- selo especial: só aparece ao zerar no modo DIFÍCIL -->
+        <div id="endHardBadge" class="hidden">
+          <div class="trophy">🏆</div>
+          <div class="big">JOGO&nbsp;ZERADO - PARABÉNS!</div>
+          <div class="small">Você venceu no modo <b>DIFÍCIL</b>. Verdadeiro escolhido da Steins;Gate.</div>
+        </div>
+        <h1 class="good">FINAL&nbsp;FELIZ</h1>
+        <p class="sub">Atravessando as linhas do tempo.</p>
+        <p class="story center"> Após atravessar as linhas do tempo o Steins;Gate foi alcançado.
+        </p>
+        <br />
+        <p class="story center">A cura foi distribuída para todos. E a humanidade foi salva.</p>
+        <p class="kongroo">El&nbsp;Psy&nbsp;Kongroo.</p>
+        <button id="endRetryBtn">REVIVER A DIVERGÊNCIA ↺</button>
+      </div>
+    </div>
+
+    <!-- fade preto para transições -->
+    <div id="fade"></div>
+    <!-- legenda de técnica durante a cutscene -->
+    <div id="cutLabel" class="hidden"></div>
+    <!-- legenda narrativa (subtitle) da cutscene -->
+    <div id="subtitle" class="hidden"></div>
+
+    <!-- aviso quando o ponteiro é liberado durante o jogo -->
+    <div id="pauseHint" class="hidden">Clique para mirar — Pointer Lock</div>
+  </div>
+
+  <!-- ===================== Scripts ===================== -->
+  <!-- carregador com cache-busting: garante arquivos sempre atualizados em dev -->
+  <script>
+    (function () {
+      var v = Date.now();
+      ['libs/p5.min.js', 'libs/p5.sound.min.js', 'js/vec3.js', 'js/shaders.js', 'js/textures.js', 'js/makise.js',
+        'js/level.js', 'js/entities.js', 'js/weapon.js', 'js/player.js', 'js/cutscene.js', 'js/intro.js', 'js/game.js']
+        .forEach(function (f) { document.write('<script src="' + f + '?v=' + v + '"><\/script>'); });
+    })();
+  </script>
+</body>
+
+</html>

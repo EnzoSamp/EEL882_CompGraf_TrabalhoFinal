@@ -11,7 +11,7 @@ cura por todas as linhas temporais.*
 
 O jogo está preparado para rodar diretamente no navegador utilizando o **GitHub Pages**. Esta abordagem resolve automaticamente os problemas de segurança de arquivos locais (CORS) que o navegador impõe (por isso o jogo não carrega as ilustrações ou o áudio se você abrir apenas o arquivo `.html` localmente).
 
-[🔗 Link para o jogo no GitHub Pages](https://EnzoSamp.github.io/Trabalho_final_CompGraf/)
+[🔗 Link para o jogo no GitHub Pages]((https://enzosamp.github.io/EEL882_CompGraf_TrabalhoFinal/))
 
 Na tela inicial clique **INICIAR** — o mouse é capturado (Pointer Lock).
 Pressione **Esc** para liberar o cursor.

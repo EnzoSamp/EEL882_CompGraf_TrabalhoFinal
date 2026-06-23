@@ -33,17 +33,18 @@ Pressione **Esc** para liberar o cursor.
 
 | Conceito | Onde está | Como aparece no jogo |
 |---|---|---|
-| **Ray casting / Picking** | `js/entities.js` → `ZUMBIS.detectarTiro()` (raio-esfera) chamado por `js/weapon.js` → `Arma.disparar()` | Cada tiro lança um raio da câmera e testa interseção raio-esfera contra os zumbis. |
-| **Shading — cel-shading** | `js/shaders.js` → `celFrag` (Phong **quantizado** + contorno fresnel) | Todo o cenário, zumbis e arma. |
-| **Iluminação dinâmica** | `celFrag`: **spotlight** (lanterna, cone em espaço de câmera) + **point light** (clarão do disparo `uMuzzle`) | Lanterna na arma (tecla F) e flash a cada tiro. |
-| **Texture mapping** | **materiais procedurais no shader** (`js/shaders.js` → `celFrag`: paredes, chão, teto, metal) + texturas p5.Graphics dos **zumbis** e **glow** (`js/textures.js`) | UVs com repetição (`fract(uv*uUVScale)`); zumbis como billboards texturizados. |
-| **Environment mapping / reflexo** | `js/shaders.js` → `envFrag` (`reflect` + ambiente procedural) em `desenharMaquinaTempo()` (`js/game.js`) | Máquina do tempo metálica reflete o laboratório. |
-| **Câmera por coordenadas cilíndricas** | `js/cutscene.js` → `_desenharEspiral()` | Câmera em **espiral** ao redor de Makise na cutscene (trigonometria: sin/cos em torno do eixo Y). |
-| **Reflexão radial** | `js/cutscene.js` → `_desenharPortal()` (planos espelhados) | **Múltiplas Makises** espelhadas radialmente "atravessando as linhas do tempo". |
-| Atmosfera | névoa exponencial (todos os shaders) + glow aditivo (`blendMode(ADD)`) | Laboratório sombrio com bloom no clarão e na máquina. |
-| Colisão **AABB** | `js/level.js` → `resolverColisao()` (separação por eixo = "escorregar") | Player e zumbis não atravessam paredes; corredor com portas. |
-| **Curvas de Bézier** | `js/makise.js` → `Ilustracao.construirBufferGrafico()` (`bezierVertex`) | A Makise da cutscene e as ilustrações da narrativa são vetoriais. |
-| **Campo de altura (escada)** | `js/level.js` → `alturaPiso()` | Dois andares reais: o jogador desce a escada com a altura dos olhos variando. |
+| **Ray casting e Interseção** | `js/entities.js` → `ZUMBIS.detectarTiro()` | Tiro lança um raio da câmera e testa interseção analítica (raio-esfera para zumbis e raio-caixa para paredes). |
+| **Modelo de Iluminação (Cel-Shading)** | `js/shaders.js` → `celFrag` | Implementação do modelo de Phong com a componente difusa quantizada (step/floor) e cálculo de contorno (Rim light/Fresnel). |
+| **Fontes de Luz (Spotlight e Point)** | `js/shaders.js` → `celFrag` | A lanterna calcula um cone de luz (Spot) no espaço da câmera; o disparo gera uma luz pontual atenuada pela distância. |
+| **Mapeamento de Textura e Procedural** | `js/shaders.js` e `js/textures.js` | Cenário usa materiais procedurais gerados matematicamente no GLSL. Zumbis usam textura 2D tradicional com coordenadas UV. |
+| **Environment Mapping** | `js/shaders.js` → `envFrag` (`reflect`) | Máquina calcula vetor de reflexão da visão e mapeia um ambiente procedural, simulando uma superfície metálica espelhada. |
+| **Sistemas de Coordenadas (Cilíndricas)**| `js/cutscene.js` → `_desenharEspiral()` | Câmera orbita a personagem na cutscene convertendo coordenadas cilíndricas (raio, ângulo, altura) para cartesianas. |
+| **Transformações Geométricas** | `js/cutscene.js` (`_desenharTunel`) | Uso de matrizes (`push`/`pop`) para Rotação radial (distribuição circular) e Escala Negativa (`scale(-1, 1)`) para espelhamento. |
+| **Blending Aditivo e Névoa (Fog)** | Shaders e `js/game.js` (`blendMode`) | Névoa exponencial baseada na distância no shader (`exp(-densidade * z)`). Brilhos (glow) usam Blending Aditivo do OpenGL. |
+| **Detecção de Colisão (AABB)** | `js/level.js` → `resolverColisao()` | Algoritmo de Axis-Aligned Bounding Box para impedir que jogador e zumbis atravessem as paredes (resolução por slide/deslizamento). |
+| **Curvas Paramétricas (Bézier)** | `js/makise.js` → `Ilustracao...` | As artes narrativas da introdução e a personagem final são 100% desenhadas via Curvas de Bézier Cúbicas (`bezierVertex`). |
+| **Campo de Altura** | `js/level.js` → `alturaPiso()` | Avaliação de altura do terreno baseada em (X, Z). Permite que o mapa tenha dois andares físicos conectados por uma rampa. |
+
 
 ---
 
